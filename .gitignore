@@ -1,22 +1,21 @@
-# CLion / CMake
-.idea/
+# CMake / CLion
 cmake-build-*/
 build/
+cmake-build-debug/
+cmake-build-release/
+.idea/
 CMakeFiles/
 CMakeCache.txt
-cmake_install.cmake
-compile_commands.json
+CTestTestfile.cmake
+Testing/
 
-# Compiled outputs
+# Local saves and executables
+save.txt
+test_save.txt
 *.exe
 *.o
 *.obj
-*.a
-*.so
-*.dll
-*.dylib
-DungeonEscape
-DungeonEscape.exe
-
-# Game saves
-save.txt
+*.pdb
+*.ilk
+*.out
+.DS_Store

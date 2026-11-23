@@ -3,19 +3,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SAVE_MAGIC "DUNGEON_ESCAPE_V1"
+#define SAVE_MAGIC_V1 "DUNGEON_ESCAPE_V1"
+#define SAVE_MAGIC_V2 "DUNGEON_ESCAPE_V2"
 
 int save_game(const GameState *game, const char *filename)
 {
     FILE *file = fopen(filename, "w");
     const Player *p = &game->player;
     int ok = 1;
+    if (!file) return 0;
 
-    if (!file) {
-        return 0;
-    }
-
-    if (fprintf(file, "%s\n", SAVE_MAGIC) < 0 ||
+    if (fprintf(file, "%s\n", SAVE_MAGIC_V2) < 0 ||
         fprintf(file, "player %d %d %d %d %d %d %d %d\n",
                 p->row, p->col, p->hp, p->max_hp,
                 p->attack, p->defense, p->level, p->xp) < 0 ||
@@ -26,13 +24,21 @@ int save_game(const GameState *game, const char *filename)
         fprintf(file, "enemies %d %d %d %d %d\n",
                 game->enemies[0].alive, game->enemies[1].alive,
                 game->enemies[2].alive, game->enemies[3].alive,
-                game->enemies[4].alive) < 0) {
-        ok = 0;
-    }
+                game->enemies[4].alive) < 0 ||
+        fprintf(file, "economy %d %d %d %d %d %d\n",
+                game->gold, game->mana, game->max_mana,
+                game->equipped_weapon, game->equipped_armor,
+                game->dialogue_last) < 0) ok = 0;
 
-    if (fclose(file) != 0) {
-        ok = 0;
-    }
+    if (ok && fprintf(file, "items") < 0) ok = 0;
+    for (int i = 0; ok && i < ITEM_COUNT; i++)
+        if (fprintf(file, " %d", game->inventory[i]) < 0) ok = 0;
+    if (ok && fprintf(file, "\ndialogue") < 0) ok = 0;
+    for (int i = 0; ok && i < DIALOG_ENDINGS; i++)
+        if (fprintf(file, " %d", game->dialogue_seen[i]) < 0) ok = 0;
+    if (ok && fprintf(file, "\n") < 0) ok = 0;
+
+    if (fclose(file) != 0) ok = 0;
     return ok;
 }
 
@@ -40,25 +46,23 @@ static int valid_save(const GameState *game)
 {
     const Player *p = &game->player;
     int defeated_normals = 0;
+    static const int thresholds[MAX_LEVEL] = {0, 20, 50, 90, 140};
 
     if (map_tile(p->row, p->col) == '#' ||
         p->level < 1 || p->level > MAX_LEVEL ||
         p->max_hp != 100 + 10 * (p->level - 1) ||
         p->attack != 12 + 2 * (p->level - 1) ||
-        p->defense != 3 + (p->level - 1) ||
+        p->defense != 3 + p->level - 1 ||
         p->hp < 1 || p->hp > p->max_hp ||
-        p->xp < 0 || p->xp > 10000) {
-        return 0;
-    }
+        p->xp < 0 || p->xp > 10000 ||
+        game->gold < 0 || game->gold > 100000 ||
+        game->max_mana != 20 + 5 * (p->level - 1) ||
+        game->mana < 0 || game->mana > game->max_mana) return 0;
 
     if (p->level < MAX_LEVEL) {
-        static const int thresholds[MAX_LEVEL] = {0, 20, 50, 90, 140};
-        if (p->xp < thresholds[p->level - 1] || p->xp >= thresholds[p->level]) {
+        if (p->xp < thresholds[p->level - 1] || p->xp >= thresholds[p->level])
             return 0;
-        }
-    } else if (p->xp < 140) {
-        return 0;
-    }
+    } else if (p->xp < thresholds[MAX_LEVEL - 1]) return 0;
 
     if ((game->shrine_used != 0 && game->shrine_used != 1) ||
         (game->boss_defeated != 0 && game->boss_defeated != 1) ||
@@ -69,25 +73,42 @@ static int valid_save(const GameState *game)
         game->quest_shrine_done != game->shrine_used ||
         game->quest_hunter_done != (game->normal_kills >= 3) ||
         game->boss_defeated != !game->enemies[4].alive ||
-        game->quest_escape_done) {
-        return 0;
-    }
+        game->quest_escape_done) return 0;
 
     for (int i = 0; i < ENEMY_COUNT; i++) {
         const Enemy *enemy = &game->enemies[i];
-        if (enemy->alive != 0 && enemy->alive != 1) {
+        if (enemy->alive != 0 && enemy->alive != 1) return 0;
+        if (enemy->alive && enemy->row == p->row && enemy->col == p->col)
             return 0;
-        }
-        if (enemy->alive && enemy->row == p->row && enemy->col == p->col) {
-            return 0;
-        }
-        if (!enemy->alive) {
-            if (!enemy->is_boss) {
-                defeated_normals++;
-            }
-        }
+        if (!enemy->alive && !enemy->is_boss) defeated_normals++;
     }
-    return defeated_normals == game->normal_kills;
+    if (defeated_normals != game->normal_kills) return 0;
+
+    for (int i = 0; i < ITEM_COUNT; i++)
+        if (game->inventory[i] < 0 || game->inventory[i] > 99) return 0;
+
+    if (game->equipped_weapon != -1) {
+        if (game->equipped_weapon < 0 || game->equipped_weapon >= 5 ||
+            game->inventory[game->equipped_weapon] < 1) return 0;
+    }
+    if (game->equipped_armor != -1) {
+        if (game->equipped_armor < 5 || game->equipped_armor >= 10 ||
+            game->inventory[game->equipped_armor] < 1) return 0;
+    }
+    if (game->dialogue_last < 0 || game->dialogue_last > DIALOG_ENDINGS)
+        return 0;
+    for (int i = 0; i < DIALOG_ENDINGS; i++)
+        if (game->dialogue_seen[i] != 0 && game->dialogue_seen[i] != 1)
+            return 0;
+    if (game->dialogue_last && !game->dialogue_seen[game->dialogue_last - 1])
+        return 0;
+    return 1;
+}
+
+static int read_key_word(FILE *file, const char *expected)
+{
+    char key[24];
+    return fscanf(file, " %23s", key) == 1 && strcmp(key, expected) == 0;
 }
 
 int load_game(GameState *game, const char *filename)
@@ -95,57 +116,66 @@ int load_game(GameState *game, const char *filename)
     FILE *file = fopen(filename, "r");
     GameState loaded;
     char magic[64];
-    char key[16];
     int alive[ENEMY_COUNT];
+    int version;
     int ok = 1;
-
-    if (!file) {
-        return 0;
-    }
+    if (!file) return 0;
     init_game(&loaded);
 
-    if (!fgets(magic, sizeof(magic), file) ||
-        strcspn(magic, "\r\n") != strlen(SAVE_MAGIC) ||
-        strncmp(magic, SAVE_MAGIC, strlen(SAVE_MAGIC)) != 0) {
-        ok = 0;
+    if (!fgets(magic, sizeof(magic), file)) {
+        fclose(file);
+        return 0;
+    }
+    magic[strcspn(magic, "\r\n")] = '\0';
+    if (strcmp(magic, SAVE_MAGIC_V2) == 0) version = 2;
+    else if (strcmp(magic, SAVE_MAGIC_V1) == 0) version = 1;
+    else {
+        fclose(file);
+        return 0;
     }
 
-    if (ok && (fscanf(file, " %15s", key) != 1 || strcmp(key, "player") != 0 ||
-               fscanf(file, "%d %d %d %d %d %d %d %d",
-                      &loaded.player.row, &loaded.player.col,
-                      &loaded.player.hp, &loaded.player.max_hp,
-                      &loaded.player.attack, &loaded.player.defense,
-                      &loaded.player.level, &loaded.player.xp) != 8)) {
+    if (!read_key_word(file, "player") ||
+        fscanf(file, "%d %d %d %d %d %d %d %d",
+               &loaded.player.row, &loaded.player.col,
+               &loaded.player.hp, &loaded.player.max_hp,
+               &loaded.player.attack, &loaded.player.defense,
+               &loaded.player.level, &loaded.player.xp) != 8 ||
+        !read_key_word(file, "progress") ||
+        fscanf(file, "%d %d %d %d %d %d",
+               &loaded.shrine_used, &loaded.normal_kills,
+               &loaded.boss_defeated, &loaded.quest_shrine_done,
+               &loaded.quest_hunter_done, &loaded.quest_escape_done) != 6 ||
+        !read_key_word(file, "enemies") ||
+        fscanf(file, "%d %d %d %d %d",
+               &alive[0], &alive[1], &alive[2], &alive[3], &alive[4]) != 5)
         ok = 0;
-    }
 
-    if (ok && (fscanf(file, " %15s", key) != 1 || strcmp(key, "progress") != 0 ||
-               fscanf(file, "%d %d %d %d %d %d",
-                      &loaded.shrine_used, &loaded.normal_kills,
-                      &loaded.boss_defeated, &loaded.quest_shrine_done,
-                      &loaded.quest_hunter_done, &loaded.quest_escape_done) != 6)) {
-        ok = 0;
-    }
-
-    if (ok && (fscanf(file, " %15s", key) != 1 || strcmp(key, "enemies") != 0 ||
-               fscanf(file, "%d %d %d %d %d",
-                      &alive[0], &alive[1], &alive[2], &alive[3], &alive[4]) != 5)) {
-        ok = 0;
+    if (ok && version == 2) {
+        if (!read_key_word(file, "economy") ||
+            fscanf(file, "%d %d %d %d %d %d",
+                   &loaded.gold, &loaded.mana, &loaded.max_mana,
+                   &loaded.equipped_weapon, &loaded.equipped_armor,
+                   &loaded.dialogue_last) != 6 ||
+            !read_key_word(file, "items")) ok = 0;
+        for (int i = 0; ok && i < ITEM_COUNT; i++)
+            if (fscanf(file, "%d", &loaded.inventory[i]) != 1) ok = 0;
+        if (ok && !read_key_word(file, "dialogue")) ok = 0;
+        for (int i = 0; ok && i < DIALOG_ENDINGS; i++)
+            if (fscanf(file, "%d", &loaded.dialogue_seen[i]) != 1) ok = 0;
+    } else if (ok && version == 1) {
+        /* Starsie ulozenia maju len povodne mechaniky. */
+        loaded.max_mana = 20 + 5 * (loaded.player.level - 1);
+        loaded.mana = loaded.max_mana;
     }
 
     if (ok) {
         for (int i = 0; i < ENEMY_COUNT; i++) {
             loaded.enemies[i].alive = alive[i];
-            if (!alive[i]) {
-                loaded.enemies[i].hp = 0;
-            }
+            if (!alive[i]) loaded.enemies[i].hp = 0;
         }
         ok = valid_save(&loaded);
     }
-
     fclose(file);
-    if (ok) {
-        *game = loaded;
-    }
+    if (ok) *game = loaded;
     return ok;
 }
