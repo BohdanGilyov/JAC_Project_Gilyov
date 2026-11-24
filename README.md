@@ -1,105 +1,126 @@
-# Dungeon Escape — projekt JAC (C11 / CLion)
+# Dungeon Escape - JAC projekt (C11 / CLion)
 
-Jednoducha terminalova RPG hra v jazyku C bez externych kniznic.
-Ciel: preskumat podzemie, splnit tri ulohy, porazit bossa a uniknut.
+Textova RPG hra v terminali. Hrac prechadza podzemim, bojuje s piatimi druhmi nepriatelov, ziskava skusenosti, plni tri ulohy a pokusa sa uniknut cez vychod X.
 
-## Spustenie v CLion (odporucany sposob)
+Projekt obsahuje **10 roznych prvkov** (Mapa, Levely, Boj, Ulohy, Save/Load, Quality of Life, Inventar, Schopnosti, Obchod, Dialog). Sceny sme nepouzili, lebo su alternativou mapy. O udelenych bodoch rozhoduje vyucujuci po obhajobe.
 
-1. Rozbalte ZIP a v CLion zvolte **File > Open**.
-2. Vyberte priecinok **JAC_Project_Gilyov** (obsahuje `CMakeLists.txt`).
-3. CLion nacita CMake projekt. Ak sa zobrazi okno s konfiguraciou, potvrďte ju.
-4. Skontrolujte, ci mate v **Settings > Build, Execution, Deployment > Toolchains**
-   nastaveny funkcny C kompilator (napr. MinGW alebo MSVC na Windows).
-5. Vpravo hore vyberte ciel **DungeonEscape** a stlacte zelene **Run**
-   (alebo `Shift+F10`). Hra sa spusti v konzole CLion.
-6. V konzole zadavajte prikazy a po kazdom stlacte **Enter**.
+## Spustenie v CLion na Windows
 
-**Nie je potrebne rucne vytvarat ani spustat `.exe` subor.**
-Na Windows CLion/CMake automaticky zostavi spustitelny `.exe` v priecinku
-`cmake-build-debug` alebo inom zostavovacom priecinku. ZIP obsahuje iba
-zdrojove subory, nie hotovy program.
+1. Rozbal ZIP a v CLion otvor priecinok `JAC_Project_Gilyov` cez **File > Open**.
+2. Nechaj CLion nacitat `CMakeLists.txt` (potrebny je dostupny C kompilator v toolchaine).
+3. V hornej liste vyber ciel **DungeonEscape** (nie `Continuous` ani `DungeonEscapeTests`).
+4. Stlac zeleny **Run**. Hra na Windows automaticky otvori vlastne okno konzoly.
+5. Nepotrebujes rucne kompilovat ani spustat `.exe`. CLion si vytvori spustitelny subor automaticky.
 
-Ak ste mali projekt uz otvoreny bez CMake, skopirujte `CMakeLists.txt`
-do jeho korenoveho priecinka a zvolte **Reload CMake Project**;
-pripadne priecinok znova otvorte cez **File > Open**.
+Ovlada sa **jednym stlacenim klavesu, bez Enter**. Klaves Escape sa nepouziva. Na terminalovy vstup a prekreslenie zostali povodne subory `input.c` a `ui.c` nezmenene.
 
 ## Ovladanie
 
-- Hlavne menu: `N` - nova hra, `L` - nacitat ulozenu hru, `Q` - koniec.
-- Mapa: `W/A/S/D` - pohyb, `P` - statistiky, `U` - ulohy,
-  `V` - ulozit do suboru, `H` - pomoc, `Q` - navrat do menu.
-- Boj: `A` - utok, `D` - obrana.
-- Po kazdom prikaze stlacte **Enter**. Velke aj male pismena su podporovane.
+| Kontext | Klaves | Akcia |
+| --- | --- | --- |
+| Hlavne menu | `N` / `L` / `H` / `Q` | Nova hra / Nacitat / Pomoc / Koniec |
+| Mapa | `W A S D` | Pohyb po mape |
+| Mapa | `I` | Inventar (vybava a elixiry) |
+| Mapa | `K` | Zobrazit naucene schopnosti |
+| Mapa | `O` | Obchod, ked hrac stoji na policku `M` |
+| Mapa | `T` | Rozhovor, ked hrac stoji na policku `N` |
+| Mapa | `P` / `U` / `V` / `H` / `Q` | Statistiky / Ulohy / Ulozit / Pomoc / Menu |
+| Boj | `A` / `D` | Utok / Obrana |
+| Boj | `K`, potom `1-5` | Vykonat schopnost (ak je odomknuta a je dost many) |
+| Boj | `I` | Otvorit inventar, nasadit vybavu, pouzit elixir |
+| Inventar | `W` / `A` / `P` | Zbrane / Brnenia / Elixiry |
+| Inventar | `1-5` | Nasadit vybavu alebo pouzit elixir |
+| Obchod | `W` / `A` / `P` | Zbrane / Brnenia / Elixiry |
+| Obchod | `B` / `S` | Nakup / Predaj |
+| Obchod | `1-5` | Kupit alebo predat vybrany predmet |
+| Inventar / obchod | `Q` | Navrat na mapu |
+| Dialog | `1`, `2`, `3` a dalsie volby | Vetveny rozhovor; `Q` navrat |
 
-Legenda mapy: `@` hrac, `#` stena, `.` volne miesto, `E` nepriatel,
-`B` boss, `H` lieciva svatyna, `h` uz pouzita svatyna, `X` vychod.
-Mapa ma rozmery 8 x 8.
+## Mapa (8x8)
 
-## Herny ciel
-
-1. Najdite svatynu (`H`) a ziskajte 20 XP. Svatyna doplni HP.
-2. Porazte aspon troch beznych nepriatelov (Rat, Skeleton, Goblin, Orc).
-   Za tretiu vyhru ziskate dalsich 35 XP.
-3. Porazte bossa (`B`) a vstupte na vychod (`X`). Na unik treba
-   splnit aj prve dve ulohy.
-
-Hra obsahuje 5 roznych nepriatelov vratane bossa a 5 urovni postavy.
-Pri level-up sa zvysi maximum HP (+10), utok (+2) a obrana (+1)
-a HP sa doplni na maximum. Prahy XP pre urovne 1 az 5: 0, 20, 50, 90, 140.
-
-Boj je tahovy, bez nahody. Poskodenie = max(1, utok - obrana).
-Pri obrane sa dalsi prijaty utok znizi na polovicu (zaokruhlenie nahor).
-
-## Ulozenie a nacitanie (Save / Load)
-
-Prikaz `V` ulozi hru do `save.txt` v aktualnom **pracovnom priecinku** procesu.
-Ulozena hra sa nacita cez `L` v hlavnom menu. CLion moze mat pracovny
-priecinok nastaveny na `cmake-build-debug`, preto sa `save.txt` nemusi
-objavit priamo vedla `main.c`. Pracovny priecinok mozno zmenit cez
-**Run > Edit Configurations > DungeonEscape > Working directory**.
-Pri opakovanom ulozeni sa ten isty subor prepise.
-
-## Pozadovane prvky — 5 x 10 bodov
-
-| Prvok | Implementacia | Kde v kode |
-|---|---|---|
-| Mapa (min. 5 x 5) | 8 x 8, pohyb a kolizie | `map.c`: `map_tile`, `print_map`, `move_player` |
-| Boj (min. 5 nepriatelov) | 5 nepriatelov vratane bossa, HP, utok, obrana | `game.c`: `init_game`; `combat.c`: `start_combat` |
-| Levely (min. 5) | XP a urovne 1 az 5 | `game.c`: `gain_xp` |
-| Ulohy (min. 3) | Svatyna, 3 nepriatelia, boss a vychod | `game.c`, `map.c` |
-| Save / Load | Zapis a nacitanie stavu zo suboru | `save.c`: `save_game`, `load_game` |
-
-Podrobnosti zadania: https://ics.science.upjs.sk/jac/poziadavky-na-projekt/
-
-## Struktura projektu
-
-```text
-JAC_Project_Gilyov/
-  CMakeLists.txt  - zostavenie a spustenie cez CLion / CMake
-  main.c          - hlavne menu a herna slucka
-  game.h          - konstanty, struktury a deklaracie funkcii
-  game.c          - hrac, nepriatelia, statistiky, XP, ulohy
-  map.c           - mapa, pohyb, udalosti na polickach
-  combat.c        - tahovy boj
-  save.c          - ukladanie a nacitanie, validacia suboru
-  OBHAJOBA.md     - poznamky na obhajobu
-  README.md       - navod a dokumentacia
-  .gitignore      - subory, ktore sa nemaju posielat na Git
+```
+# # # # # # # #
+# @ M . # . . #
+# . # N . . E #
+# . . H # . . #
+# # . . E . # #
+# E . # . . E #
+# . . . . B X #
+# # # # # # # #
 ```
 
-## Alternativna kompilacia cez CMake (bez CLion)
+`@` hrac, `#` stena, `E` bezny nepriatel, `B` boss, `H` lieciva svatyna, `X` vychod, `M` obchodnik, `N` mudrc.
 
-```sh
-cmake -S . -B build
-cmake --build build
-```
+**Ako sa dostat k obchodnikovi:** z uvodnej pozicie stlac `D`, potom `O`.
 
-Samostatna kompilacia vytvori spustitelny subor (na Windows `.exe`),
-pretoze kazdy standardny C program sa musi pre beh skompilovat.
-V CLion ho spusta priamo zelene tlacidlo Run.
+**Ako sa dostat k mudrcovi:** z uvodnej pozicie `D`, `D`, `S`, potom `T`.
 
-## Odovzdanie
+Na odomknutie vychodu treba navstivit svatynu, porazit aspon troch beznych nepriatelov a bossa.
 
-Zdrojove subory nahrajte do vlastneho Git repozitara (bez priecinkov
-`cmake-build-*`, `build` a bez `save.txt`). Pred obhajobou si pripravte
-ukazku mapy, boja, levelovania, uloh aj nacitania ulozenej hry.
+## Nove 4 prvky
+
+### Inventar (3 kategorie, 15 predmetov)
+
+- 5 zbrani: Hrdzavy mec, Kratky mec, Ocelovy mec, Elfsky mec, Mec hrdinu.
+- 5 brneni: Kozena vesta, Retazova kosela, Rytier brnenie, Ocelovy pancier, Dracia zbroj.
+- 5 elixirov: Maly, Stredny, Velky, Kralovsky, Elixir zivota.
+
+Zbrane pridavaju utok, brnenia pridavaju obranu, elixiry doplnaju zivoty. Po predaji posledneho kusa vybaveneho predmetu sa vybava automaticky zlozi. Hraci zacinaju s dvoma malymi elixirmi.
+
+### Schopnosti (5 roznych efektov)
+
+| Level | Schopnost | Efekt | Mana |
+| --- | --- | --- | ---: |
+| 1 | Silny uder | Vyssi fyzicky utok | 3 |
+| 2 | Liecivy dotyk | +30 HP (max. do plneho HP) | 4 |
+| 3 | Stitova stena | Zablokuje najblizsi utok nepriatela | 3 |
+| 4 | Ohniva gula | 30 poskodenia nezavisle od obrany | 6 |
+| 5 | Dvojity zasah | Dva fyzicke zasahy | 7 |
+
+Mana zacina na 20 a kazdy level prida 5 max. many. Po vyhratom boji alebo pri svatyni sa doplni. Kazda schopnost sa odomkne pri danom leveli.
+
+### Obchod
+
+Na poli `M` otvor obchod (`O`). Kupovanie odcita zlato a pridava kus do inventara, predaj odobera predmet a dava polovicu povodnej ceny. Za porazenych nepriatelov dostanes aj zlato. Mozes si vybrat z 15 druhov predmetov.
+
+### Dialog (5 moznych koncov)
+
+Na poli `N` otvor rozhovor (`T`). Podla vyberu v dvoch urovniach dialogu mozes dosiahnut 5 roznych koncov:
+
+1. Mudrc obnovi tvoje HP.
+2. Mudrc daruje 25 zlata.
+3. Mudrc prezradi tajomstvo (+20 XP).
+4. Mudrc daruje kralovsky elixir.
+5. Ked mudrca urazis, stratis 10 zlata.
+
+Odmena/trest za kazdy koniec sa uplatni len raz. Rozhovor sa da opakovat.
+
+## Save / Load
+
+Na mape stlac `V`, ulozi sa subor `save.txt` do pracovneho priecinka CLion. Z hlavneho menu stlac `L`.
+
+**Nova verzia V2** uklada aj zlato, manu, inventar, vybavu a vysledky dialogov. Nacitava aj stare ulozenia **V1** pred pridanim tychto prvkov.
+
+## Kde je ktory prvok v kode
+
+| Prvok | Subory / funkcie |
+| --- | --- |
+| Quality of Life | `input.c` (`read_key`, `terminal_prepare`), `ui.c` (`ui_present`) |
+| Save/Load | `save.c` (`save_game`, `load_game`) |
+| Mapa | `map.c` (`map_tile`, `move_player`, `print_map`) |
+| Levely | `game.c` (`gain_xp`) |
+| Boj | `combat.c` (`start_combat`) |
+| Ulohy | `game.c` a `map.c` (priznanie postupu po bojach a pri svatyni) |
+| Inventar | `inventory.c` (`item_equip_or_use`, `inventory_screen`) |
+| Schopnosti | `skills.c` (`use_ability`, `battle_ability_menu`) |
+| Obchod | `inventory.c` (`item_buy`, `item_sell`, `shop_screen`) |
+| Dialog | `dialogue.c` (`dialogue_screen`, `dialogue_finish`) |
+
+## Testovanie
+
+V CLion otvor CMake target `DungeonEscapeTests` alebo `DungeonEscapeFeatureTests`, pripadne spusti v CMake build priecinku `ctest --output-on-failure`.
+
+- `tests/test_game.c`: povodne mechaniky a ulozenie.
+- `tests/test_features.c`: 15 predmetov, obchod, vybava, 5 schopnosti, 5 koncov, ulozenia V1 a V2.
+
+Hlavny ciel na spustanie hry je vzdy `DungeonEscape`.
