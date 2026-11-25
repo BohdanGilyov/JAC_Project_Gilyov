@@ -1,6 +1,7 @@
 #include "game.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static int damage(int attack, int defense)
 {
@@ -8,9 +9,9 @@ static int damage(int attack, int defense)
     return value > 0 ? value : 1;
 }
 
-int start_combat(GameState *game, Enemy *enemy)
+int start_combat(struct GameState *game, struct Enemy *enemy)
 {
-    Player *p = &game->player;
+    struct Player *p = &game->player;
     char message[160];
     snprintf(message, sizeof(message), "Stretol si %s! A utok, D obrana, K schopnosti.",
              enemy->name);
@@ -20,52 +21,38 @@ int start_combat(GameState *game, Enemy *enemy)
         int dealt = 0;
         int taken = 0;
         int block_next = 0;
-        int action_done = 0;
         char action_message[120] = "";
 
         ui_battle(game, enemy, message);
-        ui_printf("  Mana: %d/%d   [K] Schopnosti   [I] Inventar/elixiry\n",
+        printf("  Mana: %d/%d   [K] Schopnosti   [I] Inventar/elixiry\n",
                   game->mana, game->max_mana);
         key = read_key();
         if (key == 0) {
-            game_message(game, "Vstup bol ukonceny; boj sa neskoncil.");
+            snprintf(game->message, sizeof(game->message), "Vstup bol ukonceny; boj sa neskoncil.");
             return 0;
         }
 
-        switch (key) {
-            case 'a':
-                dealt = damage(effective_attack(game), enemy->defense);
-                enemy->hp -= dealt;
-                action_done = 1;
-                snprintf(action_message, sizeof(action_message),
-                         "Zasiahol si za %d HP.", dealt);
-                break;
-            case 'd':
-                action_done = 1;
-                snprintf(action_message, sizeof(action_message), "Branis sa.");
-                break;
-            case 'k': {
-                int skill = battle_ability_menu(game);
-                if (skill < 0) continue;
-                if (!use_ability(game, enemy, skill, &block_next,
-                                 action_message, sizeof(action_message))) {
-                    snprintf(message, sizeof(message),
-                             "Schopnost je zamknuta, nemas manu alebo mas plne HP.");
-                    continue;
-                }
-                action_done = 1;
-                break;
+        if (key == 'a') {
+            dealt = damage(effective_attack(game), enemy->defense);
+            enemy->hp -= dealt;
+            snprintf(action_message, sizeof(action_message), "Zasiahol si za %d HP.", dealt);
+        } else if (key == 'd') {
+            strcpy(action_message, "Branis sa.");
+        } else if (key == 'k') {
+            int skill = battle_ability_menu(game);
+            if (skill < 0) continue;
+            if (!use_ability(game, enemy, skill, &block_next,
+                             action_message, sizeof(action_message))) {
+                strcpy(message, "Schopnost je zamknuta, nemas manu alebo mas plne HP.");
+                continue;
             }
-            case 'i':
-                action_done = inventory_screen(game, 1);
-                if (!action_done) continue;
-                snprintf(action_message, sizeof(action_message), "%.115s", game->message);
-                break;
-            default:
-                snprintf(message, sizeof(message), "A utok, D obrana, K schopnosti, I elixiry.");
-                break;
+        } else if (key == 'i') {
+            if (!inventory_screen(game, 1)) continue;
+            snprintf(action_message, sizeof(action_message), "%.115s", game->message);
+        } else {
+            strcpy(message, "A utok, D obrana, K schopnosti, I elixiry.");
+            continue;
         }
-        if (!action_done) continue;
         if (enemy->hp <= 0) {
             enemy->hp = 0;
             return 1;
@@ -82,6 +69,6 @@ int start_combat(GameState *game, Enemy *enemy)
                  action_message, enemy->name, taken);
     }
 
-    game_message(game, "PREHRA! %s ta porazil. Mozes nacitat save.", enemy->name);
+    snprintf(game->message, sizeof(game->message), "PREHRA! %s ta porazil. Mozes nacitat save.", enemy->name);
     return 0;
 }

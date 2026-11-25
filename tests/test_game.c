@@ -9,7 +9,7 @@
 
 static void test_initial_state(void)
 {
-    GameState game;
+    struct GameState game;
     init_game(&game);
     assert(game.player.level == 1);
     assert(game.player.xp == 0);
@@ -29,7 +29,7 @@ static void test_initial_state(void)
 
 static void test_map_shrine_and_levels(void)
 {
-    GameState game;
+    struct GameState game;
     init_game(&game);
     move_player(&game, -1, 0);
     assert(game.player.row == 1 && game.player.col == 1);
@@ -58,7 +58,7 @@ static void test_map_shrine_and_levels(void)
 
 static void test_quests_boss_and_exit(void)
 {
-    GameState game;
+    struct GameState game;
     init_game(&game);
     game.player.row = 6;
     game.player.col = 5;
@@ -91,8 +91,8 @@ static void test_quests_boss_and_exit(void)
 static void test_save_and_load(void)
 {
     static const char path[] = "test_save.txt";
-    GameState before;
-    GameState after;
+    struct GameState before;
+    struct GameState after;
     init_game(&before);
     before.player.row = 3;
     before.player.col = 2;
@@ -101,7 +101,7 @@ static void test_save_and_load(void)
     assert(save_game(&before, path));
     init_game(&after);
     assert(load_game(&after, path));
-    assert(memcmp(&after.player, &before.player, sizeof(Player)) == 0);
+    assert(memcmp(&after.player, &before.player, sizeof(struct Player)) == 0);
     assert(after.shrine_used == before.shrine_used);
     assert(after.enemies[0].alive == 0);
     assert(after.enemies[1].alive == 1);

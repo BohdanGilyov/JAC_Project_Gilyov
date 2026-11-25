@@ -1,101 +1,64 @@
 #include "game.h"
-
-#include <ctype.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <stdlib.h>
 
 #ifdef _WIN32
-#include <io.h>
+#include <conio.h>
 #include <windows.h>
+#include <io.h>
+#include <fcntl.h>
 
-/*
- * CLion Run moze presmerovat standardny vstup/vystup do pipe. Takto
- * program nema skutocnu interaktivnu konzolu a getchar() caka na Enter.
- * Vytvorime preto vlastnu Windows konzolu, nezavislu od Run okna IDE.
- */
 void terminal_prepare(void)
 {
-    if (getenv("DUNGEON_STDIN_MODE") != NULL) {
-        return;
-    }
-
-    /* Uvolnime pripadnu pseudo-konzolu, aby mala hra vlastne okno. */
-    (void)FreeConsole();
+    if (getenv("DUNGEON_STDIN_MODE")) return;
+    // Vzdy otvor vlastnu konzolu, aj ked hru spusta CLion.
+    FreeConsole();
     if (!AllocConsole()) {
-        /* Ak uz konzola existuje, pokusime sa pouzit ju. */
-        if (GetConsoleWindow() == NULL) {
-            fputs("Nepodarilo sa vytvorit hernu konzolu.\n", stderr);
-            exit(EXIT_FAILURE);
-        }
+        fprintf(stderr, "Nepodarilo sa otvorit konzolu.\n");
+        exit(1);
     }
-
-    /* freopen obnovi streamy CRT, ktore CLion mohol presmerovat. */
-    if (freopen("CONIN$", "r", stdin) == NULL ||
-        freopen("CONOUT$", "w", stdout) == NULL ||
-        freopen("CONOUT$", "w", stderr) == NULL) {
-        exit(EXIT_FAILURE);
+    // Presmeruj standardne prudy do novej konzoly.
+    if (!freopen("CONIN$", "r", stdin) ||
+        !freopen("CONOUT$", "w", stdout) ||
+        !freopen("CONOUT$", "w", stderr)) {
+        exit(1);
     }
-
-    (void)SetStdHandle(STD_INPUT_HANDLE,
-                       (HANDLE)_get_osfhandle(_fileno(stdin)));
-    (void)SetStdHandle(STD_OUTPUT_HANDLE,
-                       (HANDLE)_get_osfhandle(_fileno(stdout)));
-    (void)SetStdHandle(STD_ERROR_HANDLE,
-                       (HANDLE)_get_osfhandle(_fileno(stderr)));
-    (void)SetConsoleTitleA("Dungeon Escape - JAC Project");
-
-    HWND window = GetConsoleWindow();
-    if (window != NULL) {
-        (void)ShowWindow(window, SW_SHOW);
-        (void)SetForegroundWindow(window);
+    SetStdHandle(STD_INPUT_HANDLE, (HANDLE)_get_osfhandle(_fileno(stdin)));
+    // WinAPI potrebuje konzolovy handle s pravom citat aj zapisovat.
+    HANDLE output = CreateFileA("CONOUT$", GENERIC_READ | GENERIC_WRITE,
+                               FILE_SHARE_READ | FILE_SHARE_WRITE,
+                               NULL, OPEN_EXISTING, 0, NULL);
+    if (output == INVALID_HANDLE_VALUE ||
+        !SetStdHandle(STD_OUTPUT_HANDLE, output) ||
+        !SetStdHandle(STD_ERROR_HANDLE, output) ||
+        !SetConsoleMode(output, ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT)) {
+        fprintf(stderr, "Nepodarilo sa nastavit konzolu.\n");
+        exit(1);
     }
+    // Prevod \n na CRLF vo Windows.
+    _setmode(_fileno(stdout), _O_TEXT);
+    _setmode(_fileno(stderr), _O_TEXT);
+    SetConsoleTitleA("Dungeon Escape");
 }
 
-/*
- * ReadConsoleInputW vracia udalosti klavesnice hned pri stlaceni (bez
- * Enter). Nezobrazuje stlacene pismena a nepracuje s CLion stdin pipe.
- * Drzanie klavesu nezopakuje pohyb, az kym sa klaves nepusti.
- */
-static char read_console_key(void)
+char read_key(void)
 {
-    static unsigned char pressed[256] = {0};
-    HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-
-    if (input == NULL || input == INVALID_HANDLE_VALUE ||
-        !GetConsoleMode(input, &mode)) {
-        return 0;
-    }
-
-    for (;;) {
-        INPUT_RECORD event;
-        DWORD read_count = 0;
-        if (!ReadConsoleInputW(input, &event, 1, &read_count) ||
-            read_count != 1) {
-            return 0;
-        }
-        if (event.EventType != KEY_EVENT) {
-            continue;
-        }
-
-        KEY_EVENT_RECORD key = event.Event.KeyEvent;
-        unsigned int vk = key.wVirtualKeyCode;
-        if (!key.bKeyDown) {
-            if (vk < 256) {
-                pressed[vk] = 0;
+    fflush(stdout);
+    int key;
+    if (getenv("DUNGEON_STDIN_MODE")) {
+        key = getchar();
+    } else {
+        do {
+            key = _getch();
+            if (key == 0 || key == 224) {
+                _getch();
+                key = '\r';
             }
-            continue;
-        }
-        if (vk < 256 && pressed[vk]) {
-            continue;
-        }
-        if (vk < 256) {
-            pressed[vk] = 1;
-        }
-        if (key.uChar.UnicodeChar > 0 && key.uChar.UnicodeChar <= 127) {
-            return (char)tolower((unsigned char)key.uChar.UnicodeChar);
-        }
+        } while (key == '\r' || key == '\n');
     }
+    if (key == EOF) return 0;
+    return tolower(key);
 }
 #else
 #include <termios.h>
@@ -103,41 +66,26 @@ static char read_console_key(void)
 
 void terminal_prepare(void)
 {
-    /* POSIX terminaly uz podporuju nekanonicky rezim cez termios. */
 }
-#endif
 
 char read_key(void)
 {
-    ui_present();
-#ifdef _WIN32
-    /* Vyhradne pre automaticke skriptovane testy s presmerovanym stdin. */
-    if (getenv("DUNGEON_STDIN_MODE") != NULL) {
-        int ch = getchar();
-        return ch == EOF ? 0 : (char)tolower((unsigned char)ch);
-    }
-    return read_console_key();
-#else
-    int ch;
-    if (!isatty(STDIN_FILENO)) {
-        ch = getchar();
+    fflush(stdout);
+    int key;
+    if (isatty(STDIN_FILENO)) {
+        struct termios old;
+        if (tcgetattr(STDIN_FILENO, &old) != 0) return 0;
+        struct termios mode = old;
+        mode.c_lflag &= ~(ICANON | ECHO);
+        mode.c_cc[VMIN] = 1;
+        mode.c_cc[VTIME] = 0;
+        if (tcsetattr(STDIN_FILENO, TCSANOW, &mode) != 0) return 0;
+        key = getchar();
+        tcsetattr(STDIN_FILENO, TCSANOW, &old);
     } else {
-        struct termios original;
-        struct termios raw;
-
-        if (tcgetattr(STDIN_FILENO, &original) != 0) {
-            return 0;
-        }
-        raw = original;
-        raw.c_lflag &= (tcflag_t)~(ICANON | ECHO);
-        raw.c_cc[VMIN] = 1;
-        raw.c_cc[VTIME] = 0;
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) != 0) {
-            return 0;
-        }
-        ch = getchar();
-        (void)tcsetattr(STDIN_FILENO, TCSANOW, &original);
+        key = getchar();
     }
-    return ch == EOF ? 0 : (char)tolower((unsigned char)ch);
-#endif
+    if (key == EOF) return 0;
+    return tolower(key);
 }
+#endif

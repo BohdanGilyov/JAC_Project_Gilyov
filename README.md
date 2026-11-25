@@ -9,10 +9,10 @@ Projekt obsahuje **10 roznych prvkov** (Mapa, Levely, Boj, Ulohy, Save/Load, Qua
 1. Rozbal ZIP a v CLion otvor priecinok `JAC_Project_Gilyov` cez **File > Open**.
 2. Nechaj CLion nacitat `CMakeLists.txt` (potrebny je dostupny C kompilator v toolchaine).
 3. V hornej liste vyber ciel **DungeonEscape** (nie `Continuous` ani `DungeonEscapeTests`).
-4. Stlac zeleny **Run**. Hra na Windows automaticky otvori vlastne okno konzoly.
-5. Nepotrebujes rucne kompilovat ani spustat `.exe`. CLion si vytvori spustitelny subor automaticky.
+4. Stlac zeleny **Run**. Hra na Windows vzdy vytvori vlastnu konzolu s nazvom Dungeon Escape, nezavisle od konzoly CLion.
+5. Ak Run nefunguje interaktivne, spusti `DungeonEscape.exe` dvojklikom v Prieskumnikovi (najdes ho v `cmake-build-debug`). Pri probleme so zostavenim vymaz `cmake-build-debug` a nacitaj CMake znova.
 
-Ovlada sa **jednym stlacenim klavesu, bez Enter**. Klaves Escape sa nepouziva. Na terminalovy vstup a prekreslenie zostali povodne subory `input.c` a `ui.c` nezmenene.
+Ovlada sa **jednym stlacenim klavesu, bez Enter**. Klaves Escape sa nepouziva. Vstup zabezpecuje `input.c` (`_getch` na Windows, `termios` na Linuxe). Vykreslenie pouziva `printf`, `puts` a `putchar`. Pred kazdou obrazovkou `ui_clear` vymaze obrazovku a nastavi kurzor na poziciu (0, 0). Windows Terminal pouziva normalnu obrazovku: ANSI prikazy vymazu obrazovku aj historiu a vratia kurzor na zaciatok. Konzolovy handle ma prava na citanie aj zapis a zapnute spracovanie novych riadkov. Starsia konzola Windows bez ANSI pouziva WinAPI na vymazanie celeho buffera. Linux pouziva samostatnu ANSI obrazovku. Premenna prostredia `DUNGEON_STDIN_MODE` je urcena len na automatizovane testy vo Windows; pri beznom hrani ju nenastavuj.
 
 ## Ovladanie
 
@@ -57,7 +57,7 @@ Ovlada sa **jednym stlacenim klavesu, bez Enter**. Klaves Escape sa nepouziva. N
 
 Na odomknutie vychodu treba navstivit svatynu, porazit aspon troch beznych nepriatelov a bossa.
 
-## Nove 4 prvky
+## Dalsie 4 prvky
 
 ### Inventar (3 kategorie, 15 predmetov)
 
@@ -99,13 +99,13 @@ Odmena/trest za kazdy koniec sa uplatni len raz. Rozhovor sa da opakovat.
 
 Na mape stlac `V`, ulozi sa subor `save.txt` do pracovneho priecinka CLion. Z hlavneho menu stlac `L`.
 
-**Nova verzia V2** uklada aj zlato, manu, inventar, vybavu a vysledky dialogov. Nacitava aj stare ulozenia **V1** pred pridanim tychto prvkov.
+Format V2 uklada aj zlato, manu, inventar, vybavu a vysledky dialogov. Stary format V1 sa uz nenacitava.
 
 ## Kde je ktory prvok v kode
 
 | Prvok | Subory / funkcie |
 | --- | --- |
-| Quality of Life | `input.c` (`read_key`, `terminal_prepare`), `ui.c` (`ui_present`) |
+| Quality of Life | `input.c` (`read_key`, `terminal_prepare`), `ui.c` (`ui_clear`) |
 | Save/Load | `save.c` (`save_game`, `load_game`) |
 | Mapa | `map.c` (`map_tile`, `move_player`, `print_map`) |
 | Levely | `game.c` (`gain_xp`) |
@@ -121,6 +121,12 @@ Na mape stlac `V`, ulozi sa subor `save.txt` do pracovneho priecinka CLion. Z hl
 V CLion otvor CMake target `DungeonEscapeTests` alebo `DungeonEscapeFeatureTests`, pripadne spusti v CMake build priecinku `ctest --output-on-failure`.
 
 - `tests/test_game.c`: povodne mechaniky a ulozenie.
-- `tests/test_features.c`: 15 predmetov, obchod, vybava, 5 schopnosti, 5 koncov, ulozenia V1 a V2.
+- `tests/test_features.c`: 15 predmetov, obchod, vybava, 5 schopnosti, 5 koncov, ulozenie V2.
 
 Hlavny ciel na spustanie hry je vzdy `DungeonEscape`.
+
+## Kompilacia mimo CLion
+
+```sh
+gcc -std=c11 -Wall -Wextra main.c game.c map.c combat.c save.c input.c ui.c inventory.c skills.c dialogue.c -o DungeonEscape
+```

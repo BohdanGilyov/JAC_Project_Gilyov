@@ -6,8 +6,8 @@
 
 ## Kde ukazat kod pre kazdy prvok
 
-1. **Quality of Life:** `input.c` - `read_key` na nacitanie znaku bez Enter; `ui.c` - `ui_clear`, `ui_present` na prekreslenie terminalu. Tieto dva subory boli pri rozsirovani zachovane bez uprav.
-2. **Save/Load:** `save.c` - `save_game` zapisuje polia do suboru `save.txt`, `load_game` ich nacita a skontroluje. Podporuje format V2 i povodny V1.
+1. **Quality of Life:** `input.c` - `terminal_prepare` vytvori samostatnu konzolu Windows a `read_key` nacita znak bez Enter; `ui.c` - `ui_clear` vymaze obrazovku a historiu a vrati kurzor na zaciatok pred kazdym prekreslenim (starsia konzola Windows pouziva WinAPI, Linux samostatnu ANSI obrazovku); standardne funkcie `printf`, `puts`, `putchar` na prekreslenie terminalu.
+2. **Save/Load:** `save.c` - `save_game` zapisuje polia do suboru `save.txt`, `load_game` ich nacita a skontroluje. Podporuje textovy format V2.
 3. **Mapa:** `map.c` - `dungeon[8][9]`, `map_tile`, `move_player`, `print_map`. Steny sa nepovolia prekrocit.
 4. **Levely:** `game.c` - pole `level_xp` a `gain_xp`; XP od nepriatelov a uloh, automaticky level-up od 1 po 5.
 5. **Boj:** `combat.c` - `start_combat`: HP, utok, obrana, utocny a obranny tah. `game.c` inicializuje 5 protivnikov.
@@ -42,7 +42,7 @@
 
 **Co ak sa dialog zopakuje?** `dialogue_seen` brani viacnasobnemu ziskaniu tej istej odmeny. Hrac moze dosiahnut ine konce.
 
-**Preco nacitas aj V1?** Aby stare subory `save.txt` z predoslej verzie stale fungovali; nove udaje dostanu vychodiskove hodnoty.
+**Preco kontrolujes nacitane hodnoty?** Aby sa pri neplatnom subore nepouzila neplatna pozicia, index predmetu alebo statistika.
 
 **Ako zmenis cenu predmetu?** V `inventory.c` v poli `item_catalog` upravis cislo `price` u prislusneho predmetu.
 

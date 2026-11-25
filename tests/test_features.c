@@ -9,11 +9,11 @@
 
 static void test_catalog_inventory_and_store(void)
 {
-    GameState game;
+    struct GameState game;
     init_game(&game);
     assert(game.gold == 70);
     for (int i = 0; i < ITEM_COUNT; i++) {
-        assert(item_catalog[i].type == (ItemType)(i / ITEM_PER_TYPE));
+        assert(item_catalog[i].type == (enum ItemType)(i / ITEM_PER_TYPE));
         assert(item_catalog[i].price > 0 && item_catalog[i].bonus > 0);
     }
     assert(game.inventory[10] == 2);
@@ -50,8 +50,8 @@ static void test_catalog_inventory_and_store(void)
 
 static void test_five_skills(void)
 {
-    GameState game;
-    Enemy enemy;
+    struct GameState game;
+    struct Enemy enemy;
     int block = 0;
     char message[160];
     init_game(&game);
@@ -88,7 +88,7 @@ static void test_five_skills(void)
 
 static void test_five_dialogue_endings(void)
 {
-    GameState game;
+    struct GameState game;
     init_game(&game);
     game.player.hp = 25;
     assert(dialogue_finish(&game, 1));
@@ -111,11 +111,11 @@ static void test_five_dialogue_endings(void)
     assert(!dialogue_finish(&game, 6));
 }
 
-static void test_new_save_and_old_save_compatibility(void)
+static void test_save_and_load(void)
 {
     const char *path = "test_feature_save.txt";
-    GameState before;
-    GameState after;
+    struct GameState before;
+    struct GameState after;
     init_game(&before);
     assert(item_buy(&before, 0));
     (void)item_equip_or_use(&before, 0);
@@ -128,7 +128,7 @@ static void test_new_save_and_old_save_compatibility(void)
     assert(map_tile(2, 3) == 'N');
     assert(save_game(&before, path));
     assert(load_game(&after, path));
-    assert(memcmp(&before.player, &after.player, sizeof(Player)) == 0);
+    assert(memcmp(&before.player, &after.player, sizeof(struct Player)) == 0);
     assert(memcmp(before.inventory, after.inventory, sizeof(before.inventory)) == 0);
     assert(memcmp(before.dialogue_seen, after.dialogue_seen,
                   sizeof(before.dialogue_seen)) == 0);
@@ -138,18 +138,7 @@ static void test_new_save_and_old_save_compatibility(void)
     assert(after.dialogue_last == before.dialogue_last);
     assert(remove(path) == 0);
 
-    FILE *file = fopen(path, "w");
-    assert(file);
-    assert(fputs("DUNGEON_ESCAPE_V1\n"
-                 "player 1 1 100 100 12 3 1 0\n"
-                 "progress 0 0 0 0 0 0\n"
-                 "enemies 1 1 1 1 1\n", file) >= 0);
-    assert(fclose(file) == 0);
-    assert(load_game(&after, path));
-    assert(after.gold == 70 && after.inventory[10] == 2);
-    assert(after.mana == 20 && after.max_mana == 20);
-    assert(after.equipped_weapon == -1 && after.equipped_armor == -1);
-    assert(remove(path) == 0);
+
 }
 
 int main(void)
@@ -157,7 +146,7 @@ int main(void)
     test_catalog_inventory_and_store();
     test_five_skills();
     test_five_dialogue_endings();
-    test_new_save_and_old_save_compatibility();
-    puts("OK: 15 predmetov, obchod, vybava, 5 schopnosti, 5 koncov dialogu, save/load V1/V2.");
+    test_save_and_load();
+    puts("OK: 15 predmetov, obchod, vybava, 5 schopnosti, 5 koncov dialogu, save/load V2.");
     return 0;
 }

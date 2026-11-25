@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-const Item item_catalog[ITEM_COUNT] = {
+const struct Item item_catalog[ITEM_COUNT] = {
     {"Hrdzavy mec",     WEAPON,  20,  2},
     {"Kratky mec",      WEAPON,  40,  4},
     {"Ocelovy mec",     WEAPON,  75,  6},
@@ -20,7 +20,7 @@ const Item item_catalog[ITEM_COUNT] = {
     {"Elixir zivota",   POTION,  75, 999}
 };
 
-int effective_attack(const GameState *game)
+int effective_attack(const struct GameState *game)
 {
     int value = game->player.attack;
     if (game->equipped_weapon >= 0 && game->equipped_weapon < ITEM_PER_TYPE)
@@ -28,7 +28,7 @@ int effective_attack(const GameState *game)
     return value;
 }
 
-int effective_defense(const GameState *game)
+int effective_defense(const struct GameState *game)
 {
     int value = game->player.defense;
     if (game->equipped_armor >= 5 && game->equipped_armor < 10)
@@ -36,19 +36,19 @@ int effective_defense(const GameState *game)
     return value;
 }
 
-int item_buy(GameState *game, int index)
+int item_buy(struct GameState *game, int index)
 {
     if (index < 0 || index >= ITEM_COUNT ||
         game->inventory[index] >= 99 || game->gold < item_catalog[index].price)
         return 0;
     game->gold -= item_catalog[index].price;
     game->inventory[index]++;
-    game_message(game, "Kupene: %s. Zostava %d zlata.",
+    snprintf(game->message, sizeof(game->message), "Kupene: %s. Zostava %d zlata.",
                  item_catalog[index].name, game->gold);
     return 1;
 }
 
-int item_sell(GameState *game, int index)
+int item_sell(struct GameState *game, int index)
 {
     if (index < 0 || index >= ITEM_COUNT || game->inventory[index] <= 0)
         return 0;
@@ -58,13 +58,13 @@ int item_sell(GameState *game, int index)
         game->equipped_weapon = -1;
     if (game->equipped_armor == index && game->inventory[index] == 0)
         game->equipped_armor = -1;
-    game_message(game, "Predane: %s. Mas %d zlata.",
+    snprintf(game->message, sizeof(game->message), "Predane: %s. Mas %d zlata.",
                  item_catalog[index].name, game->gold);
     return 1;
 }
 
 /* Vracia 1 iba po skutocnom pouziti elixiru. */
-int item_equip_or_use(GameState *game, int index)
+int item_equip_or_use(struct GameState *game, int index)
 {
     int healed;
     if (index < 0 || index >= ITEM_COUNT || game->inventory[index] <= 0)
@@ -72,13 +72,13 @@ int item_equip_or_use(GameState *game, int index)
 
     if (item_catalog[index].type == WEAPON) {
         game->equipped_weapon = index;
-        game_message(game, "Nasadil si %s (+%d utok).",
+        snprintf(game->message, sizeof(game->message), "Nasadil si %s (+%d utok).",
                      item_catalog[index].name, item_catalog[index].bonus);
         return 0;
     }
     if (item_catalog[index].type == ARMOR) {
         game->equipped_armor = index;
-        game_message(game, "Nasadil si %s (+%d obrana).",
+        snprintf(game->message, sizeof(game->message), "Nasadil si %s (+%d obrana).",
                      item_catalog[index].name, item_catalog[index].bonus);
         return 0;
     }
@@ -89,28 +89,28 @@ int item_equip_or_use(GameState *game, int index)
         healed = game->player.max_hp - game->player.hp;
     game->player.hp += healed;
     game->inventory[index]--;
-    game_message(game, "Pouzil si %s. +%d HP.", item_catalog[index].name, healed);
+    snprintf(game->message, sizeof(game->message), "Pouzil si %s. +%d HP.", item_catalog[index].name, healed);
     return 1;
 }
 
-static void print_items(const GameState *game, int category, int in_shop, int mode)
+static void print_items(const struct GameState *game, int category, int in_shop, int mode)
 {
     int first = category * ITEM_PER_TYPE;
     for (int i = 0; i < ITEM_PER_TYPE; i++) {
         int index = first + i;
-        const Item *item = &item_catalog[index];
+        const struct Item *item = &item_catalog[index];
         char mark = game->equipped_weapon == index || game->equipped_armor == index ? '*' : ' ';
-        ui_printf("  [%d] %-18s %+3d %-6s  mas:%-2d %c",
+        printf("  [%d] %-18s %+3d %-6s  mas:%-2d %c",
                   i + 1, item->name, item->bonus,
                   item->type == WEAPON ? "UTOK" : item->type == ARMOR ? "OBRANA" : "HP",
                   game->inventory[index], mark);
         if (in_shop)
-            ui_printf("  %d zlata", mode ? item->price / 2 : item->price);
-        ui_putchar('\n');
+            printf("  %d zlata", mode ? item->price / 2 : item->price);
+        putchar('\n');
     }
 }
 
-int inventory_screen(GameState *game, int in_battle)
+int inventory_screen(struct GameState *game, int in_battle)
 {
     int category = POTION;
     char status[100] = "Vyber predmet cislicou 1-5.";
@@ -119,16 +119,16 @@ int inventory_screen(GameState *game, int in_battle)
         int index;
         ui_clear();
         ui_header(in_battle ? "INVENTAR - BOJ" : "INVENTAR");
-        ui_printf("  Zlato: %d  |  HP: %d/%d  |  Utok: %d  |  Obrana: %d\n\n",
+        printf("  Zlato: %d  |  HP: %d/%d  |  Utok: %d  |  Obrana: %d\n\n",
                   game->gold, game->player.hp, game->player.max_hp,
                   effective_attack(game), effective_defense(game));
-        ui_puts("  [W] Zbrane  [A] Brnenie  [P] Elixiry  [Q] Spat");
-        ui_printf("\n  Kategoria: %s\n", category == WEAPON ? "ZBRANE" :
+        puts("  [W] Zbrane  [A] Brnenie  [P] Elixiry  [Q] Spat");
+        printf("\n  Kategoria: %s\n", category == WEAPON ? "ZBRANE" :
                   category == ARMOR ? "BRNENIE" : "ELIXIRY");
         print_items(game, category, 0, 0);
-        ui_puts("\n  Cislica 1-5: nasadit predmet alebo vypit elixir.");
-        ui_puts("  * oznacuje nasadenu vybavu.");
-        ui_printf("\n  INFO: %s\n", status);
+        puts("\n  Cislica 1-5: nasadit predmet alebo vypit elixir.");
+        puts("  * oznacuje nasadenu vybavu.");
+        printf("\n  INFO: %s\n", status);
         key = read_key();
         if (key == 'q' || key == 0) return 0;
         if (key == 'w') { category = WEAPON; continue; }
@@ -152,7 +152,7 @@ int inventory_screen(GameState *game, int in_battle)
     }
 }
 
-void shop_screen(GameState *game)
+void shop_screen(struct GameState *game)
 {
     int category = WEAPON;
     int sell = 0;
@@ -163,14 +163,14 @@ void shop_screen(GameState *game)
         int success;
         ui_clear();
         ui_header("OBCHODNIK - NAKUP A PREDAJ");
-        ui_printf("  Tvoje zlato: %d\n\n", game->gold);
-        ui_puts("  [W] Zbrane   [A] Brnenie   [P] Elixiry");
-        ui_puts("  [B] Nakup    [S] Predaj    [Q] Odist");
-        ui_printf("\n  REZIM: %s   KATEGORIA: %s\n\n", sell ? "PREDAJ" : "NAKUP",
+        printf("  Tvoje zlato: %d\n\n", game->gold);
+        puts("  [W] Zbrane   [A] Brnenie   [P] Elixiry");
+        puts("  [B] Nakup    [S] Predaj    [Q] Odist");
+        printf("\n  REZIM: %s   KATEGORIA: %s\n\n", sell ? "PREDAJ" : "NAKUP",
                   category == WEAPON ? "ZBRANE" : category == ARMOR ? "BRNENIE" : "ELIXIRY");
         print_items(game, category, 1, sell);
-        ui_puts("\n  Cislicou 1-5 kupis alebo predas vybrany predmet.");
-        ui_printf("\n  INFO: %s\n", status);
+        puts("\n  Cislicou 1-5 kupis alebo predas vybrany predmet.");
+        printf("\n  INFO: %s\n", status);
         key = read_key();
         if (key == 'q' || key == 0) return;
         if (key == 'w') { category = WEAPON; continue; }

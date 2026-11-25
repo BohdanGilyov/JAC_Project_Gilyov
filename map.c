@@ -21,15 +21,15 @@ char map_tile(int row, int col)
     return dungeon[row][col];
 }
 
-void print_map(const GameState *game)
+void print_map(const struct GameState *game)
 {
-    ui_puts("           1  2  3  4  5  6  7  8");
+    puts("           1  2  3  4  5  6  7  8");
     for (int row = 0; row < MAP_ROWS; row++) {
-        ui_printf("        %d  ", row + 1);
+        printf("        %d  ", row + 1);
         for (int col = 0; col < MAP_COLS; col++) {
             char tile = map_tile(row, col);
             for (int i = 0; i < ENEMY_COUNT; i++) {
-                const Enemy *e = &game->enemies[i];
+                const struct Enemy *e = &game->enemies[i];
                 if (e->alive && e->row == row && e->col == col) {
                     tile = e->is_boss ? 'B' : 'E';
                 }
@@ -40,15 +40,15 @@ void print_map(const GameState *game)
             if (game->player.row == row && game->player.col == col) {
                 tile = '@';
             }
-            ui_printf("%c  ", tile);
+            printf("%c  ", tile);
         }
-        ui_putchar('\n');
+        putchar('\n');
     }
-    ui_puts("   @ hrac   # stena   E nepriatel   B boss");
-    ui_puts("   H svatyna   h pouzita   X vychod   M obchod   N mudrc");
+    puts("   @ hrac   # stena   E nepriatel   B boss");
+    puts("   H svatyna   h pouzita   X vychod   M obchod   N mudrc");
 }
 
-void move_player(GameState *game, int dr, int dc)
+void move_player(struct GameState *game, int dr, int dc)
 {
     int row = game->player.row + dr;
     int col = game->player.col + dc;
@@ -56,26 +56,23 @@ void move_player(GameState *game, int dr, int dc)
     int fought = 0;
 
     if (tile == '#') {
-        game_message(game, "Tymto smerom je stena. Skus inu cestu.");
+        snprintf(game->message, sizeof(game->message), "Tymto smerom je stena. Skus inu cestu.");
         return;
     }
 
     if (tile == 'X' && (!game->boss_defeated ||
                         !game->quest_shrine_done || !game->quest_hunter_done)) {
-        game_message(game, "Vychod X je zamknuty! Dokonci ulohy a poraz bossa.");
+        snprintf(game->message, sizeof(game->message), "Vychod X je zamknuty! Dokonci ulohy a poraz bossa.");
         return;
     }
 
     for (int i = 0; i < ENEMY_COUNT; i++) {
-        Enemy *enemy = &game->enemies[i];
+        struct Enemy *enemy = &game->enemies[i];
         if (enemy->alive && enemy->row == row && enemy->col == col) {
             if (!start_combat(game, enemy)) {
                 return;
             }
-            /* Od porazenia po vypis odmeny sa HP nesmie doplnit. */
-            const int hp_after_combat = game->player.hp;
             on_enemy_defeated(game, i);
-            game->player.hp = hp_after_combat;
             fought = 1;
             break;
         }
@@ -84,9 +81,6 @@ void move_player(GameState *game, int dr, int dc)
     game->player.row = row;
     game->player.col = col;
 
-    /* Po boji nezacneme spracovavat dalsie udalosti policka.
-       Svatyna H vie liecit az pri samostatnom vstupe na policko,
-       nie automaticky v tom istom kroku ako porazenie nepriatela. */
     if (fought) {
         return;
     }
@@ -97,19 +91,19 @@ void move_player(GameState *game, int dr, int dc)
         gain_xp(game, 20);
         game->player.hp = game->player.max_hp;
         game->mana = game->max_mana;
-        game_message(game, "ULOHA 1 SPLNENA! Svatyna obnovila HP, +20 XP. Level %d.",
+        snprintf(game->message, sizeof(game->message), "ULOHA 1 SPLNENA! Svatyna obnovila HP, +20 XP. Level %d.",
                      game->player.level);
     } else if (tile == 'X') {
         game->quest_escape_done = 1;
-        game_message(game, "VITAZSTVO! Dokoncil si vsetky 3 ulohy.");
+        snprintf(game->message, sizeof(game->message), "VITAZSTVO! Dokoncil si vsetky 3 ulohy.");
     } else if (tile == 'M') {
-        game_message(game, "Si v obchode. Stlac O a obchoduj bez Enter.");
+        snprintf(game->message, sizeof(game->message), "Si v obchode. Stlac O a obchoduj bez Enter.");
     } else if (tile == 'N') {
-        game_message(game, "Stretol si mudrca. Stlac T a rozpravaj sa.");
+        snprintf(game->message, sizeof(game->message), "Stretol si mudrca. Stlac T a rozpravaj sa.");
     } else if (tile == 'H') {
-        game_message(game, "Svatyna uz bola pouzita.");
+        snprintf(game->message, sizeof(game->message), "Svatyna uz bola pouzita.");
     } else {
-        game_message(game, "Pohyb: riadok %d, stlpec %d. Preskumaj podzemie.",
+        snprintf(game->message, sizeof(game->message), "Pohyb: riadok %d, stlpec %d. Preskumaj podzemie.",
                      row + 1, col + 1);
     }
 }
